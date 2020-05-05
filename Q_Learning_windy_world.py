@@ -100,7 +100,7 @@ def generate_episode_step (state, action):
     #state, action
     return (current_y, current_x), -1
 
-def sarsa ():
+def Q_learn ():
     #generate random policy
     policy = {}
     #store value for each state action pair
@@ -143,5 +143,5 @@ def sarsa ():
             s_val = states[x][y]
     return policy
 
-policy = sarsa()
+policy = Q_learn()
 print (policy)

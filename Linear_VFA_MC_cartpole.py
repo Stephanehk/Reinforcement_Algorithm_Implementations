@@ -85,8 +85,6 @@ def linear_VFA_MC():
 
     plt.show()
     env.close()
-    print (W)
-
 
         #update weights
 
