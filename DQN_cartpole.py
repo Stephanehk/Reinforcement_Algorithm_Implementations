@@ -45,22 +45,6 @@ def Q_learn ():
     num_episodes = 200
     c = 0
 
-    def creat_model1():
-        opt = SGD(lr=0.001)
-        #try out different configs of batch norm
-        model = Sequential()
-        model.add(Dense(units=12, input_dim=4))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-
-        model.add(Dense(units=8))
-        model.add(BatchNormalization())
-        model.add(Activation('relu'))
-
-        model.add(Dense(units=2, activation='linear'))
-        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
-        return model
-
     def creat_model():
         opt = SGD(lr=0.01)
         #try out different configs of batch norm
@@ -68,7 +52,7 @@ def Q_learn ():
         model.add(Dense(units=12, input_dim=4, activation="relu"))
         model.add(Dense(units=8, activation="relu"))
         model.add(Dense(units=2, activation='linear'))
-        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
+        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse","accuracy"])
         return model
 
     #setup neural network
@@ -79,6 +63,7 @@ def Q_learn ():
 
     reward_arr = []
     mse_arr = []
+    acc_arr = []
     for i in range (num_episodes):
         s = env.reset()
         done = False
@@ -95,13 +80,13 @@ def Q_learn ():
                 #run single instance of episode
                 s_prime, reward, done, info = env.step(a)
                 total_reward += reward
-                D.append((s,a,total_reward,s_prime,done))
+                D.append((s,a,reward,s_prime,done))
 
 
                 sample =reservoir_sample(D,64)
                 #build X and y
-                #X = []
-                #y = []
+                X = []
+                y = []
                 episode_mse = []
                 for episode in sample:
                     s,a,reward,s_prime,terminal = episode
@@ -113,19 +98,26 @@ def Q_learn ():
                         delta_q = reward + gamma*max(target_model.predict(s_prime_f)[0])
 
                     #update Q(s,a)
-                    q_values = model.predict(s_prime_f)
+                    s_f = np.array([s])
+                    q_values = model.predict(s_f)
                     q_values[0][a] = delta_q
                     #update neural network with new target
-                    history = model.fit(np.array([s]),np.array(q_values),verbose=0)
-                    episode_mse.append(history.history["mean_squared_error"][0])
-                mse_arr.append(np.mean(episode_mse))
+                    X.append(s)
+                    y.append(q_values[0])
+
+                X = np.array(X)
+                y = np.array(y)
+
+                history = model.fit(X,y,epochs = 1, verbose=0)
+                mse_arr.extend(history.history["mean_squared_error"])
+                acc_arr.extend(history.history["acc"])
 
             else:
                 a = epsilon_greedy(random.choice(possible_actions))
                 #run single instance of episode
                 s_prime, reward, done, info = env.step(a)
                 total_reward += reward
-                D.append((s,a,total_reward,s_prime,done))
+                D.append((s,a,reward,s_prime,done))
 
 
             s = s_prime
@@ -134,9 +126,14 @@ def Q_learn ():
             #TODO: idk after how many steps should the weights be transfered
             if c == 16:
                 #print ("tranfered weights...")
+                color = "b"
                 target_model.set_weights(model.get_weights())
                 c = 0
         reward_arr.append(total_reward)
+
+        plt.figure(2)
+        plt.plot(acc_arr, color="g")
+        plt.pause(0.05)
 
         plt.figure(1)
         plt.plot(reward_arr, color="k")
