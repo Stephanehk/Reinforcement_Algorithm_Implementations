@@ -2,9 +2,11 @@ import gym
 import numpy as np
 import random
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense,Activation,BatchNormalization
 from keras.optimizers import SGD
+from keras.models import model_from_json
 import matplotlib.pyplot as plt
+import pprint
 
 possible_actions = [0,1]
 gamma = 0.9
@@ -18,24 +20,15 @@ def reservoir_sample(arr, k):
         else:
             j = int(random.uniform(0,i))
             if j < k:
-                #print (j)
                 reservoir[j] = arr[i]
     return reservoir
 
 def get_best_action (model, s):
-    #return possible_actions[np.argmax(np.dot(s.T,Q[a]) for a in possible_actions)]
-    next_action_values = []
-    for a in possible_actions:
-        x = list(s.copy())
-        x.append(a)
-        #x = np.reshape(x, (5,1))
-        x = np.array([x])
-        #print (x.shape)
-        #x = np.array([[x_] for x_ in x])
-        pred = model.predict(x)
-        next_action_values.append(pred[0][0])
+    s = np.array(s)
+    s = s.reshape(1,4)
+    action_values = model.predict(s)
+    return np.argmax(action_values[0])
 
-    return possible_actions[np.argmax(next_action_values)]
 
 def epsilon_greedy(a):
     if random.uniform(0,1) < (1-eps):
@@ -49,24 +42,40 @@ def Q_learn ():
     #memory replay array
     D = []
 
-    num_episodes = 10000
+    num_episodes = 200
     c = 0
 
+    def creat_model1():
+        opt = SGD(lr=0.001)
+        #try out different configs of batch norm
+        model = Sequential()
+        model.add(Dense(units=12, input_dim=4))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+
+        model.add(Dense(units=8))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+
+        model.add(Dense(units=2, activation='linear'))
+        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
+        return model
+
+    def creat_model():
+        opt = SGD(lr=0.01)
+        #try out different configs of batch norm
+        model = Sequential()
+        model.add(Dense(units=12, input_dim=4, activation="relu"))
+        model.add(Dense(units=8, activation="relu"))
+        model.add(Dense(units=2, activation='linear'))
+        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
+        return model
+
     #setup neural network
-    opt = SGD(lr=0.01)
-
-    model = Sequential()
-    model.add(Dense(units=12, activation='relu', input_dim=5))
-    model.add(Dense(units=8, activation='relu'))
-    model.add(Dense(units=1, activation='softmax'))
-    model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
-
+    model = creat_model()
     #setup target neural network
-    target_model = Sequential()
-    target_model.add(Dense(units=12, activation='relu', input_dim=5))
-    target_model.add(Dense(units=8, activation='relu'))
-    target_model.add(Dense(units=1, activation='softmax'))
-    target_model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
+    target_model = creat_model()
+
 
     reward_arr = []
     mse_arr = []
@@ -80,65 +89,50 @@ def Q_learn ():
             env.render()
             t+=1
 
-            #sample 64 (s,a,r,s_prime) pairs to train NN on
+            #memory replay - sample 64 (s,a,r,s_prime) pairs to train NN on
             if len (D)> 64:
                 a = epsilon_greedy(get_best_action (model, s))
                 #run single instance of episode
                 s_prime, reward, done, info = env.step(a)
                 total_reward += reward
-                D.append((s,a,total_reward,s_prime))
+                D.append((s,a,total_reward,s_prime,done))
 
 
                 sample =reservoir_sample(D,64)
                 #build X and y
-                X = []
-                y = []
+                #X = []
+                #y = []
+                episode_mse = []
                 for episode in sample:
-                    s,a,reward,s_prime = episode
+                    s,a,reward,s_prime,terminal = episode
 
-                    x = list(s.copy())
-                    x.append(a)
-                    X.append(x)
+                    #calculate bellman update equation
+                    delta_q = reward
+                    if not terminal:
+                        s_prime_f = np.array([s_prime])
+                        delta_q = reward + gamma*max(target_model.predict(s_prime_f)[0])
 
-                    #build y using best predicted s,a pair
-                    possible_preds = []
-                    for a in possible_actions:
-                        p_x = list(s.copy())
-                        p_x.append(a)
-                        p_x = np.array([p_x])
-                        #TODO: WE ALL KNOW THERE IS GONNA BE ANOTHER REWARD ERROR!!
-                        pred = reward + gamma*target_model.predict(p_x)
-                        possible_preds.append(pred[0][0])
-                    #print ("possible preds shape: " + str(np.array(possible_preds).shape))
-                    y.append([max(possible_preds)])
-                    #print (max(possible_preds))
+                    #update Q(s,a)
+                    q_values = model.predict(s_prime_f)
+                    q_values[0][a] = delta_q
+                    #update neural network with new target
+                    history = model.fit(np.array([s]),np.array(q_values),verbose=0)
+                    episode_mse.append(history.history["mean_squared_error"][0])
+                mse_arr.append(np.mean(episode_mse))
 
-                #train neural network
-                X = np.array(X)
-                y = np.array(y)
-                #history = model.train_on_batch(X,y)
-                history = model.fit(X,y,verbose=0)
-
-                # error = model.evaluate(X, y,verbose=0)
-                # #print ("model error: " + str(error))
-
-                # plt.figure(0)
-                mse_arr.extend(history.history["mean_squared_error"])
-                # plt.plot(mse_arr, color="r")
-                # plt.pause(0.05)
             else:
                 a = epsilon_greedy(random.choice(possible_actions))
                 #run single instance of episode
                 s_prime, reward, done, info = env.step(a)
                 total_reward += reward
-                D.append((s,a,total_reward,s_prime))
+                D.append((s,a,total_reward,s_prime,done))
 
 
             s = s_prime
             #transfer weights to target Q
             c+=1
             #TODO: idk after how many steps should the weights be transfered
-            if c == 128:
+            if c == 16:
                 #print ("tranfered weights...")
                 target_model.set_weights(model.get_weights())
                 c = 0
@@ -153,9 +147,17 @@ def Q_learn ():
         plt.pause(0.05)
 
         if done:
-            print("Episode finished after {} timesteps".format(t+1))
-
+            print("Episode " + str(i) + " finished after {} timesteps".format(t+1))
 
     plt.show()
     env.close()
+    #---save model---
+    # serialize model to JSON
+    model_json = target_model.to_json()
+    with open("model.json", "w") as json_file:
+        json_file.write(model_json)
+    # serialize weights to HDF5
+    target_model.save_weights("model.h5")
+    print("Saved model to disk")
+
 Q_learn()
