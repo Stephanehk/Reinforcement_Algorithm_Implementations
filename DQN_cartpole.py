@@ -7,6 +7,7 @@ from keras.optimizers import SGD
 from keras.models import model_from_json
 import matplotlib.pyplot as plt
 import pprint
+import timeit
 
 possible_actions = [0,1]
 gamma = 0.9
@@ -52,7 +53,7 @@ def Q_learn ():
         model.add(Dense(units=12, input_dim=4, activation="relu"))
         model.add(Dense(units=8, activation="relu"))
         model.add(Dense(units=2, activation='linear'))
-        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse","accuracy"])
+        model.compile(loss='mean_squared_error',optimizer=opt, metrics = ["mse"])
         return model
 
     #setup neural network
@@ -64,6 +65,7 @@ def Q_learn ():
     reward_arr = []
     mse_arr = []
     acc_arr = []
+    time_arr = []
     for i in range (num_episodes):
         s = env.reset()
         done = False
@@ -108,9 +110,13 @@ def Q_learn ():
                 X = np.array(X)
                 y = np.array(y)
 
+                s = timeit.default_timer()
                 history = model.fit(X,y,epochs = 1, verbose=0)
+                e = timeit.default_timer()
+
+                time_arr.append(e-s)
                 mse_arr.extend(history.history["mean_squared_error"])
-                acc_arr.extend(history.history["acc"])
+                #acc_arr.extend(history.history["acc"])
 
             else:
                 a = epsilon_greedy(random.choice(possible_actions))
@@ -131,9 +137,13 @@ def Q_learn ():
                 c = 0
         reward_arr.append(total_reward)
 
-        plt.figure(2)
-        plt.plot(acc_arr, color="g")
-        plt.pause(0.05)
+        # plt.figure(3)
+        # plt.plot(time_arr, color="b")
+        # plt.pause(0.05)
+
+        # plt.figure(2)
+        # plt.plot(acc_arr, color="g")
+        # plt.pause(0.05)
 
         plt.figure(1)
         plt.plot(reward_arr, color="k")
