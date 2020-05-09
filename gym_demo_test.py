@@ -12,7 +12,7 @@ while not done:
     #1 moves to the right, 0 moves to the left
     action = env.action_space.sample()
     observation, reward, done, info = env.step(action)
-    print (reward)
+    print (done)
     if done:
         print("Episode finished after {} timesteps".format(t+1))
         break
