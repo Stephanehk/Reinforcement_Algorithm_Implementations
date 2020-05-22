@@ -6,4 +6,5 @@ import random
 #
 # print (np.dot(arr1.T,arr2[None,:]))
 
-s = np.zeros([3,2])
+s = [1,2,3,4,5,6]
+print (s[2:])

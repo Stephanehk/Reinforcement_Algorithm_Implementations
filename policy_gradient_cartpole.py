@@ -9,6 +9,16 @@ n_actions = env.action_space.n
 n_features = 4
 #warnings.filterwarnings('error')
 
+def gradient_checkinb(s, theta, e = 0.001):
+    theta = theta.unravel()
+    grad_approx = [None for i in range (len(theta))]
+    for i in range (len(theta)):
+        theta_plus = theta
+        theta_plus[i] += e
+        theta_minus = theta
+        theta_minus[i] -= e
+        grad_approx[i] = (follow_policy(theta_plus, s, False) - follow_policy(theta_minus, s, False))/(2*e)
+
 def phi (s,a):
     phi = np.zeros([n_actions,n_features])
     phi[a] = s
@@ -29,18 +39,16 @@ def follow_policy(thetas, s, return_action):
     else:
         return softmax
 
-
-
 def MC_policy_gradient ():
     num_iters = 1000
-    gamma = 0.9
+    gamma = 0.99
     alpha = 0.01
     #setup weights
     #thetas = [[random.uniform(0, 1) for i in range(n_features)] for j in range (n_actions)]
     thetas = np.array([[random.uniform(0, 1) for i in range(n_actions)] for j in range (n_features)])
 
     total_rewards_arr = []
-    avg_reward_arr = []
+    avg_reward_arr = [0]
 
     for i in range(num_iters):
 
@@ -95,9 +103,10 @@ def MC_policy_gradient ():
 
             #format phi
             phi_ = phi (s_t,a_t)
-
             softmax_update = phi_ - sum([phi(s_t,a)*policy_probs[a] for a in range(n_actions)])
-            thetas+= alpha*r*softmax_update.T
+            #calculate baseline (average reward from s onwards)
+            b = np.mean(discounted_rewards[list(discounted_rewards).index(r):])
+            thetas+= alpha*(r-b)*softmax_update.T
 
         plt.plot(avg_reward_arr, color = "g")
         plt.pause(0.05)
