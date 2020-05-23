@@ -18,6 +18,7 @@ def gradient_checkinb(s, theta, e = 0.001):
         theta_minus = theta
         theta_minus[i] -= e
         grad_approx[i] = (follow_policy(theta_plus, s, False) - follow_policy(theta_minus, s, False))/(2*e)
+    return grad_approx
 
 def phi (s,a):
     phi = np.zeros([n_actions,n_features])
@@ -27,15 +28,12 @@ def phi (s,a):
 
 def follow_policy(thetas, s, return_action):
 
-    #possible_actions = [np.dot(s.T,thetas[a]) for a in range(n_actions)]
-    # print (thetas)
-    # print (thetas[:1])
     possible_actions = [np.dot(s.T,thetas.T[a]) for a in range(n_actions)]
-    softmax = np.exp(possible_actions)/np.exp(sum(possible_actions))
+    softmax = np.exp(possible_actions)/sum(np.exp(possible_actions))
 
     #TODO: Problem could be here - should chose action based on probability instead of always chosing the action witht the highest probability
     if return_action:
-        return np.argmax(softmax)
+        return np.random.choice(n_actions,p=softmax)
     else:
         return softmax
 

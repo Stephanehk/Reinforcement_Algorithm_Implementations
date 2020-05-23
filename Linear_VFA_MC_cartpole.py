@@ -79,7 +79,6 @@ def linear_VFA_MC():
             loss = reward - Q
             #update the weights for each state based on error
             for j in range(len(W[action])):
-                #TODO: this is the error function you gotta actually do gradient descent
                 #W[action][j] += alpha*np.power(reward - Q,2)*state[j]
                 W[action][j] += alpha*loss*state[j]
 
