@@ -6,5 +6,7 @@ import random
 #
 # print (np.dot(arr1.T,arr2[None,:]))
 
-s = [1,2,3,4,5,6]
-print (s[2:])
+t = (1,2,3)
+
+for i in t:
+    print (i)

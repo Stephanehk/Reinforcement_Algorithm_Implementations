@@ -3,7 +3,7 @@ import gym
 import random
 import matplotlib.pyplot as plt
 import warnings
-warnings.filterwarnings('error')
+#warnings.filterwarnings('error')
 
 #env = gym.make("LunarLander-v2")
 env = gym.make("CartPole-v0")
@@ -29,9 +29,9 @@ def phi (s,a):
 def actor_critic():
     #init everything
     gamma = 0.99
-    alpha_theta = 0.001
-    alpha_w = 0.001
-    num_iters = 1000
+    alpha_theta = 0.01
+    alpha_w = 0.01
+    num_iters = 10000
 
     #init weights
     thetas = np.array([[random.uniform(0, 1) for i in range(n_actions)] for j in range (n_features)])
