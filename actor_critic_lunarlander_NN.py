@@ -117,36 +117,62 @@ def actor_critic():
             a = follow_policy(policy,s, True)
             s_prime,r, done, _ = env.step(a)
             total_reward+=r
+
+            if not done:
+                a_prime = follow_policy(policy,s_prime, True)
+                #format critic X
+                r += gamma*critic.predict(np.array([format_sa_pair (s_prime,a_prime)]))[0]
+                #r_t += gamma*critic.predict([s_prime_t,a_prime])[0] - critic.predict([s_t,a_t])[0]
+
+            # #----------------ACTOR---------------------------------------
+            #compute delta
+            delta = r - critic.predict(np.array([format_sa_pair (s,a)]))
+            #update actor to predict best action given state
+            s_reshaped = s.reshape(1,len(s))
+            actor_X = [np.array(s_reshaped),np.array(delta)]
+            actor_y = np.array([encode_a(a)])
+            #X = np.array(X)
+            actor.fit(actor_X,actor_y,verbose=0)
+            #----------------CRITIC---------------------------------------
+            #format critic x
+            x = format_sa_pair (s,a)
+            x = np.array([x])
+            #update critic to predict the future reward after one step
+            critic.fit(x,[r],verbose=0)
+
+
+
+            #I think there is no need for memory replay in vanilla actor-critic
             #save step to memory
-            memory_replay.append((s,a,r,s_prime, done))
+            #memory_replay.append((s,a,r,s_prime, done))
 
             #update networks' parameters
-            if len(memory_replay) > 100:
-                batch = reservoir_sample(memory_replay,100)
-                for step in batch:
-                    s_t,a_t,r_t,s_prime_t,done_t = step
-                    #calculate delta- TODO: There may be some more stuff that needs to be added here
-                    if not done_t:
-                        a_prime = follow_policy(policy,s_prime_t, True)
-                        #format critic X
-                        r_t += gamma*critic.predict(np.array([format_sa_pair (s_prime_t,a_prime)]))[0]
-                        #r_t += gamma*critic.predict([s_prime_t,a_prime])[0] - critic.predict([s_t,a_t])[0]
-
-                    # #----------------ACTOR---------------------------------------
-                    #compute delta
-                    delta = r_t - critic.predict(np.array([format_sa_pair (s_t,a_t)]))
-                    #update actor to predict best action given state
-                    s_t_reshaped = s_t.reshape(1,len(s_t))
-                    actor_X = [np.array(s_t_reshaped),np.array(delta)]
-                    actor_y = np.array([encode_a(a_t)])
-                    #X = np.array(X)
-                    actor.fit(actor_X,actor_y,verbose=0)
-                    #----------------CRITIC---------------------------------------
-                    #format critic x
-                    x = format_sa_pair (s_t,a_t)
-                    x = np.array([x])
-                    #update critic to predict the future reward after one step
-                    critic.fit(x,[r_t],verbose=0)
+            # if len(memory_replay) > 100:
+            #     batch = reservoir_sample(memory_replay,100)
+            #     for step in batch:
+            #         s_t,a_t,r_t,s_prime_t,done_t = step
+            #         #calculate delta- TODO: There may be some more stuff that needs to be added here
+            #         if not done_t:
+            #             a_prime = follow_policy(policy,s_prime_t, True)
+            #             #format critic X
+            #             r_t += gamma*critic.predict(np.array([format_sa_pair (s_prime_t,a_prime)]))[0]
+            #             #r_t += gamma*critic.predict([s_prime_t,a_prime])[0] - critic.predict([s_t,a_t])[0]
+            #
+            #         # #----------------ACTOR---------------------------------------
+            #         #compute delta
+            #         delta = r_t - critic.predict(np.array([format_sa_pair (s_t,a_t)]))
+            #         #update actor to predict best action given state
+            #         s_t_reshaped = s_t.reshape(1,len(s_t))
+            #         actor_X = [np.array(s_t_reshaped),np.array(delta)]
+            #         actor_y = np.array([encode_a(a_t)])
+            #         #X = np.array(X)
+            #         actor.fit(actor_X,actor_y,verbose=0)
+            #         #----------------CRITIC---------------------------------------
+            #         #format critic x
+            #         x = format_sa_pair (s_t,a_t)
+            #         x = np.array([x])
+            #         #update critic to predict the future reward after one step
+            #         critic.fit(x,[r_t],verbose=0)
 
             s = s_prime
 
