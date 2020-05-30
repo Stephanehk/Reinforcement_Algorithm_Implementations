@@ -61,7 +61,11 @@ def model(input_dim_, output_dim_, alpha, model_type):
 
     def loss_function (y,y_pred):
         y_pred = K.clip(y_pred,1e-8,1-1e-8)
-        return K.sum(-y*K.log(y_pred)*delta)
+        #select action taken
+        # log_lik = K.sum(y*K.log(y_pred))
+        # return K.mean(-log_lik*delta)
+        log_lik = y*K.log(y_pred)
+        return K.sum(-log_lik*delta)
 
     if model_type == "actor":
         out = Dense(units = output_dim_, activation="softmax")(l2)
@@ -78,7 +82,6 @@ def model(input_dim_, output_dim_, alpha, model_type):
         print ("cannot understand model type")
         return None
     return model
-
 
 def actor_critic():
     #init everything
@@ -102,6 +105,10 @@ def actor_critic():
 
     avg_reward_arr = [0]
     avg_timestep_arr = [0]
+    all_rewards = []
+
+    actor_loss = []
+    critic_loss = []
 
     #debugging stuff
     first_episode_reward = None
@@ -127,52 +134,21 @@ def actor_critic():
             # #----------------ACTOR---------------------------------------
             #compute delta
             delta = r - critic.predict(np.array([format_sa_pair (s,a)]))
+            #print (len(delta))
             #update actor to predict best action given state
             s_reshaped = s.reshape(1,len(s))
             actor_X = [np.array(s_reshaped),np.array(delta)]
             actor_y = np.array([encode_a(a)])
             #X = np.array(X)
-            actor.fit(actor_X,actor_y,verbose=0)
+            actor_history = actor.fit(actor_X,actor_y,epochs = 1, verbose=0)
+            actor_loss.append(actor_history.history["loss"])
             #----------------CRITIC---------------------------------------
             #format critic x
             x = format_sa_pair (s,a)
             x = np.array([x])
             #update critic to predict the future reward after one step
-            critic.fit(x,[r],verbose=0)
-
-
-
-            #I think there is no need for memory replay in vanilla actor-critic
-            #save step to memory
-            #memory_replay.append((s,a,r,s_prime, done))
-
-            #update networks' parameters
-            # if len(memory_replay) > 100:
-            #     batch = reservoir_sample(memory_replay,100)
-            #     for step in batch:
-            #         s_t,a_t,r_t,s_prime_t,done_t = step
-            #         #calculate delta- TODO: There may be some more stuff that needs to be added here
-            #         if not done_t:
-            #             a_prime = follow_policy(policy,s_prime_t, True)
-            #             #format critic X
-            #             r_t += gamma*critic.predict(np.array([format_sa_pair (s_prime_t,a_prime)]))[0]
-            #             #r_t += gamma*critic.predict([s_prime_t,a_prime])[0] - critic.predict([s_t,a_t])[0]
-            #
-            #         # #----------------ACTOR---------------------------------------
-            #         #compute delta
-            #         delta = r_t - critic.predict(np.array([format_sa_pair (s_t,a_t)]))
-            #         #update actor to predict best action given state
-            #         s_t_reshaped = s_t.reshape(1,len(s_t))
-            #         actor_X = [np.array(s_t_reshaped),np.array(delta)]
-            #         actor_y = np.array([encode_a(a_t)])
-            #         #X = np.array(X)
-            #         actor.fit(actor_X,actor_y,verbose=0)
-            #         #----------------CRITIC---------------------------------------
-            #         #format critic x
-            #         x = format_sa_pair (s_t,a_t)
-            #         x = np.array([x])
-            #         #update critic to predict the future reward after one step
-            #         critic.fit(x,[r_t],verbose=0)
+            critic_history = critic.fit(x,[r],epochs = 1, verbose=0)
+            critic_loss.append(critic_history.history["mean_squared_error"])
 
             s = s_prime
 
@@ -187,15 +163,25 @@ def actor_critic():
                 moving_avg = (t - avg_timestep_arr[-1]) * (2/(len(avg_timestep_arr) +1)) + avg_timestep_arr[-1]
                 avg_timestep_arr.append(moving_avg)
 
+                all_rewards.append(t)
                 env.close()
                 break
 
-        plt.figure(0)
-        plt.plot(avg_reward_arr, color = "k")
-        plt.pause(0.05)
+        # plt.figure(0)
+        # plt.plot(avg_reward_arr, color = "k")
+        # plt.pause(0.05)
 
         plt.figure(1)
-        plt.plot(avg_timestep_arr, color = "g")
+        plt.plot(actor_loss, color = "g")
+        plt.pause(0.05)
+
+        plt.figure(2)
+        plt.plot(critic_loss, color = "b")
+        plt.pause(0.05)
+
+
+        plt.figure(3)
+        plt.plot(all_rewards, color = "r")
         plt.pause(0.05)
     plt.show()
 
